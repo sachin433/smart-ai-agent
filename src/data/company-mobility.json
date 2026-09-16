@@ -1,0 +1,95 @@
+[
+  {
+    "companyId": "gitlab",
+    "euHiringCountries": ["Germany", "Ireland", "Netherlands", "UK"],
+    "hasEuEntity": true,
+    "sponsorCapability": "international_hiring_program",
+    "evidenceNotes": "Global all-remote employer with EMEA hiring entities"
+  },
+  {
+    "companyId": "datadog",
+    "euHiringCountries": ["France", "Ireland", "Netherlands", "Germany", "Spain"],
+    "hasEuEntity": true,
+    "sponsorCapability": "likely_capable",
+    "evidenceNotes": "Large EU offices; mobility varies by country"
+  },
+  {
+    "companyId": "grafana",
+    "euHiringCountries": ["Sweden", "Germany", "Ireland", "Spain", "UK"],
+    "hasEuEntity": true,
+    "sponsorCapability": "likely_capable",
+    "evidenceNotes": "EU remote roles common; verify per listing"
+  },
+  {
+    "companyId": "elastic",
+    "euHiringCountries": ["Netherlands", "Germany", "UK"],
+    "hasEuEntity": true,
+    "sponsorCapability": "likely_capable"
+  },
+  {
+    "companyId": "mongodb",
+    "euHiringCountries": ["Ireland", "UK", "Germany"],
+    "hasEuEntity": true,
+    "sponsorCapability": "international_hiring_program"
+  },
+  {
+    "companyId": "stripe",
+    "euHiringCountries": ["Ireland", "UK", "Germany", "Netherlands"],
+    "hasEuEntity": true,
+    "sponsorCapability": "international_hiring_program"
+  },
+  {
+    "companyId": "databricks",
+    "euHiringCountries": ["Netherlands", "Germany", "UK"],
+    "hasEuEntity": true,
+    "sponsorCapability": "likely_capable"
+  },
+  {
+    "companyId": "spotify",
+    "euHiringCountries": ["Sweden", "UK", "Germany"],
+    "hasEuEntity": true,
+    "sponsorCapability": "international_hiring_program"
+  },
+  {
+    "companyId": "cloudflare",
+    "euHiringCountries": ["UK", "Germany", "Portugal"],
+    "hasEuEntity": true,
+    "sponsorCapability": "likely_capable"
+  },
+  {
+    "companyId": "vercel",
+    "euHiringCountries": ["UK", "Germany"],
+    "hasEuEntity": true,
+    "sponsorCapability": "unknown"
+  },
+  {
+    "companyId": "openai",
+    "euHiringCountries": ["UK", "Ireland"],
+    "hasEuEntity": true,
+    "sponsorCapability": "likely_capable"
+  },
+  {
+    "companyId": "palantir",
+    "euHiringCountries": ["UK", "Germany"],
+    "hasEuEntity": true,
+    "sponsorCapability": "likely_capable"
+  },
+  {
+    "companyId": "figma",
+    "euHiringCountries": ["UK", "Germany"],
+    "hasEuEntity": true,
+    "sponsorCapability": "unknown"
+  },
+  {
+    "companyId": "linear",
+    "euHiringCountries": [],
+    "hasEuEntity": false,
+    "sponsorCapability": "unknown"
+  },
+  {
+    "companyId": "ramp",
+    "euHiringCountries": [],
+    "hasEuEntity": false,
+    "sponsorCapability": "unlikely"
+  }
+]

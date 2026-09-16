@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "note": "Workday CXS boards — tenant/shard/site from careers URLs, not guessable from domain"
+  },
+  "boards": {
+    "zalando": {
+      "companyName": "Zalando",
+      "tenant": "zalando",
+      "shard": "wd3",
+      "site": "ZalandoSiteWD"
+    },
+    "booking": {
+      "companyName": "Booking.com",
+      "tenant": "priceline",
+      "shard": "wd1",
+      "site": "BookingHoldings"
+    },
+    "nvidia": {
+      "companyName": "NVIDIA",
+      "tenant": "nvidia",
+      "shard": "wd5",
+      "site": "NVIDIAExternalCareerSite"
+    },
+    "salesforce": {
+      "companyName": "Salesforce",
+      "tenant": "salesforce",
+      "shard": "wd12",
+      "site": "External_Career_Site"
+    },
+    "adobe": {
+      "companyName": "Adobe",
+      "tenant": "adobe",
+      "shard": "wd5",
+      "site": "external_experienced"
+    }
+  }
+}
