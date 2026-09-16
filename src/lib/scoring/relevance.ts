@@ -1,8 +1,6 @@
 import type { CandidateProfile, JobAnalysis, RelevanceTier, ScoredJob } from "@/lib/types";
 import { classifyLocations } from "@/lib/location/classifier";
 import { analyzeJob, hasStrongNegativeSignals, type AnalyzeOptions } from "./analyzer";
-import { isInfraTargetRole } from "./role-filter";
-import { isSecurityRole } from "./security-filter";
 import { containsPhrase } from "@/lib/utils/text";
 import {
   classifyVisaEligibility,
@@ -280,53 +278,5 @@ export function tierMeetsThreshold(
   return tierIdx >= thresholdIdx;
 }
 
-export function titleMatchesSearchRings(
-  title: string,
-  profile: CandidateProfile,
-): boolean {
-  if (/\bprincipal\b/i.test(title)) return false;
-  if (/\bgpu\b/i.test(title)) return false;
-  if (isSecurityRole(title)) return false;
-
-  if (isInfraTargetRole(title)) return true;
-
-  const norm = title.toLowerCase();
-  for (const t of profile.searchTitles) {
-    if (norm.includes(t.toLowerCase())) return true;
-  }
-
-  const adjacent = [
-    "production engineer",
-    "reliability engineer",
-    "infrastructure architect",
-    "platform architect",
-    "cloud architect",
-    "senior staff",
-    "software engineer, infrastructure",
-    "software engineer (infrastructure)",
-    "software engineer - infrastructure",
-    "data platform",
-    "events platform",
-    "search platform",
-    "developer platform",
-  ];
-  for (const t of adjacent) {
-    if (norm.includes(t)) return true;
-  }
-
-  const emerging = [
-    "ai compute",
-    "inference platform",
-    "model serving",
-    "llmops",
-    "mlops",
-    "compute platform",
-  ];
-  for (const t of emerging) {
-    if (norm.includes(t)) return true;
-  }
-
-  return false;
-}
-
+export { titleMatchesSearchRings } from "./title-gate";
 export { isPositiveVisaStatus };

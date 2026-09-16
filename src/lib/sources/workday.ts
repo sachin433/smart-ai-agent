@@ -1,25 +1,12 @@
+import { buildWorkdaySearchTerms } from "@/lib/discovery/workday-terms";
 import { passesAggregatorPrefilter } from "@/lib/discovery/title-prefilter";
+import { DEFAULT_PROFILE } from "@/lib/defaults/profile";
 import type { JobSource, RawJob, SearchParams, SourceHealth } from "@/lib/types";
 import { stripHtml } from "@/lib/utils/text";
 import workdayBoards from "@/data/workday-boards.json";
 
 const PAGE_SIZE = 20;
 const MAX_PAGES_PER_TERM = 4;
-const MAX_DETAIL_FETCHES = 40;
-
-const SEARCH_TERMS = [
-  "site reliability engineer",
-  "platform engineer",
-  "infrastructure engineer",
-  "devops engineer",
-  "cloud engineer",
-  "production engineer",
-  "Pune",
-  "Bangalore",
-  "Bengaluru",
-  "Hyderabad",
-  "Mumbai",
-];
 
 interface WorkdayBoardConfig {
   companyName: string;
@@ -67,11 +54,14 @@ export class WorkdaySource implements JobSource {
     const board = boards[boardId];
     if (!board) return [];
 
+    const profile = params.profile ?? DEFAULT_PROFILE;
+    const searchTerms = buildWorkdaySearchTerms(profile);
+
     const apiBase = `https://${board.tenant}.${board.shard}.myworkdayjobs.com/wday/cxs/${board.tenant}/${board.site}`;
     const seen = new Set<string>();
     const listItems: WorkdayListItem[] = [];
 
-    for (const term of SEARCH_TERMS) {
+    for (const term of searchTerms) {
       let offset = 0;
       for (let page = 0; page < MAX_PAGES_PER_TERM; page++) {
         const data = await this.postJobs(apiBase, term, offset);
@@ -93,9 +83,8 @@ export class WorkdaySource implements JobSource {
     }
 
     const rawJobs: RawJob[] = [];
-    const toFetch = listItems.slice(0, MAX_DETAIL_FETCHES);
 
-    for (const item of toFetch) {
+    for (const item of listItems) {
       try {
         rawJobs.push(await this.fetchDetail(apiBase, board, item));
         await sleep(150);
@@ -125,6 +114,11 @@ export class WorkdaySource implements JobSource {
         error: err instanceof Error ? err.message : String(err),
       };
     }
+  }
+
+  private stableJobId(board: WorkdayBoardConfig, item: WorkdayListItem): string {
+    const pathKey = item.externalPath.replace(/^\//, "").replace(/\//g, "-");
+    return `${board.tenant}-${pathKey}`;
   }
 
   private async postJobs(
@@ -179,15 +173,9 @@ export class WorkdaySource implements JobSource {
     if (info?.country?.descriptor) locations.push(info.country.descriptor);
     if (item.locationsText) locations.push(item.locationsText);
 
-    const jobId =
-      info?.jobReqId ??
-      item.bulletFields?.[0] ??
-      item.externalPath.split("/").pop() ??
-      item.title;
-
     return {
       source: this.name,
-      sourceJobId: `${board.tenant}-${jobId}`,
+      sourceJobId: this.stableJobId(board, item),
       url:
         info?.externalUrl ??
         `https://${board.tenant}.${board.shard}.myworkdayjobs.com${item.externalPath}`,
@@ -203,14 +191,9 @@ export class WorkdaySource implements JobSource {
     board: WorkdayBoardConfig,
     item: WorkdayListItem,
   ): RawJob {
-    const jobId =
-      item.bulletFields?.[0] ??
-      item.externalPath.split("/").pop() ??
-      item.title;
-
     return {
       source: this.name,
-      sourceJobId: `${board.tenant}-${jobId}`,
+      sourceJobId: this.stableJobId(board, item),
       url: `https://${board.tenant}.${board.shard}.myworkdayjobs.com${item.externalPath}`,
       companyName: board.companyName,
       title: item.title.trim(),

@@ -4,7 +4,8 @@ import { classifyLocations } from "@/lib/location/classifier";
 import { contentHash, randomId } from "@/lib/utils/hash";
 import { normalizeTitle } from "@/lib/utils/text";
 import { canonicalizeUrl } from "@/lib/utils/url";
-import { scoreJob, titleMatchesSearchRings } from "@/lib/scoring/relevance";
+import { scoreJob } from "@/lib/scoring/relevance";
+import { evaluateTitleGate } from "@/lib/scoring/title-gate";
 import {
   buildImmigrationEvidence,
   classifyVisaEligibility,
@@ -93,7 +94,7 @@ export async function normalizeJob(
     raw.companyName,
   );
 
-  const passesTitleFilter = titleMatchesSearchRings(raw.title, profile);
+  const passesTitleFilter = evaluateTitleGate(raw.title, profile).accepted;
 
   const concerns = [...scored.concerns];
   if (visa.status === "unknown" && laneAssignment.lane === "P1") {

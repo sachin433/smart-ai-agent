@@ -22,7 +22,8 @@
     "cron:run": "bash scripts/cron-run-now.sh",
     "cron:status": "launchctl print gui/$(id -u)/com.jobradar.scan 2>/dev/null || echo 'Not installed — run: npm run cron:install'",
     "jobs:purge": "npx tsx scripts/purge-irrelevant.ts",
-    "discover:companies": "npx tsx scripts/discover-companies.ts"
+    "discover:companies": "npx tsx scripts/discover-companies.ts",
+    "boards:prune": "npx tsx scripts/prune-dead-boards.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

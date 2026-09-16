@@ -1,6 +1,6 @@
 import type { CandidateProfile, JobAnalysis } from "@/lib/types";
 import { classifyLocations } from "@/lib/location/classifier";
-import { getTitleRejectReason } from "@/lib/scoring/role-filter";
+import { evaluateTitleGate } from "@/lib/scoring/title-gate";
 import { containsPhrase, countPhraseMatches, normalizeTitle } from "@/lib/utils/text";
 import {
   classifyVisaEligibility,
@@ -177,9 +177,9 @@ export function hasStrongNegativeSignals(
   locations: string[] = [],
   options?: AnalyzeOptions,
 ): { rejected: boolean; reason?: string } {
-  const titleReject = getTitleRejectReason(title);
-  if (titleReject) {
-    return { rejected: true, reason: titleReject };
+  const titleGate = evaluateTitleGate(title, profile);
+  if (!titleGate.accepted) {
+    return { rejected: true, reason: titleGate.reason };
   }
 
   const combined = `${title} ${description}`.toLowerCase();

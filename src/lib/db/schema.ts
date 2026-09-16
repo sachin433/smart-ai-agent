@@ -159,6 +159,7 @@ export const scanRuns = pgTable("scan_runs", {
   jobsNew: integer("jobs_new").notNull().default(0),
   jobsRelevant: integer("jobs_relevant").notNull().default(0),
   errors: jsonb("errors").$type<string[]>().notNull().default([]),
+  funnelStats: jsonb("funnel_stats").$type<Record<string, unknown>>(),
 });
 
 export const scanTasks = pgTable(

@@ -2,6 +2,12 @@ import { eq } from "drizzle-orm";
 import type { Db } from "@/lib/db";
 import { scanRuns } from "@/lib/db/schema";
 import { ingestRawJobs } from "@/lib/pipeline/ingest";
+import {
+  createEmptyFunnel,
+  mergeFunnel,
+  funnelSummary,
+  type FunnelStats,
+} from "@/lib/pipeline/funnel";
 import { getSource } from "@/lib/sources";
 import {
   claimNextTask,
@@ -12,6 +18,36 @@ import {
 } from "./orchestrator";
 
 const MAX_TASKS_PER_INVOCATION = 5;
+
+async function persistScanProgress(
+  db: Db,
+  scanRunId: string,
+  ingest: Awaited<ReturnType<typeof ingestRawJobs>>,
+  errors: string[],
+): Promise<void> {
+  const run = await db
+    .select()
+    .from(scanRuns)
+    .where(eq(scanRuns.id, scanRunId))
+    .limit(1);
+
+  if (!run[0]) return;
+
+  const priorFunnel = (run[0].funnelStats as FunnelStats | null) ?? createEmptyFunnel();
+  const mergedFunnel = mergeFunnel(priorFunnel, ingest.funnel);
+
+  await db
+    .update(scanRuns)
+    .set({
+      jobsDiscovered: run[0].jobsDiscovered + ingest.discovered,
+      jobsNew: run[0].jobsNew + ingest.newJobs,
+      jobsRelevant:
+        run[0].jobsRelevant + ingest.relevant + ingest.funnel.reviewIngested,
+      funnelStats: mergedFunnel,
+      errors: errors.length > 0 ? errors : run[0].errors,
+    })
+    .where(eq(scanRuns.id, scanRunId));
+}
 
 export async function processScanTasks(
   db: Db,
@@ -42,6 +78,7 @@ export async function processScanTasks(
         const rawJobs = await source.search({
           companySlug: payload.atsSlug,
           companyName: payload.companyName,
+          profile,
         });
 
         const result = await ingestRawJobs(
@@ -50,6 +87,8 @@ export async function processScanTasks(
           profile,
           payload.companyId,
         );
+
+        await persistScanProgress(db, scanRunId, result, errors);
 
         await updateSourceHealth(
           db,
@@ -67,8 +106,10 @@ export async function processScanTasks(
         const source = getSource(sourceName);
         if (!source) throw new Error(`Aggregator source not configured: ${sourceName}`);
 
-        const rawJobs = await source.search({});
+        const rawJobs = await source.search({ profile });
         const result = await ingestRawJobs(db, rawJobs, profile);
+
+        await persistScanProgress(db, scanRunId, result, errors);
 
         await updateSourceHealth(
           db,
@@ -78,11 +119,11 @@ export async function processScanTasks(
           result.relevant,
         );
       } else if (task.taskType === "remotive_scan") {
-        // Legacy task type from older scan runs
         const source = getSource("remotive");
         if (!source) throw new Error("Remotive source not configured");
-        const rawJobs = await source.search({});
+        const rawJobs = await source.search({ profile });
         const result = await ingestRawJobs(db, rawJobs, profile);
+        await persistScanProgress(db, scanRunId, result, errors);
         await updateSourceHealth(db, "remotive", true, result.discovered, result.relevant);
       }
 
@@ -109,13 +150,10 @@ export async function processScanTasks(
       .where(eq(scanRuns.id, scanRunId))
       .limit(1);
 
-    if (run[0]) {
-      await db
-        .update(scanRuns)
-        .set({
-          errors: errors.length > 0 ? errors : run[0].errors,
-        })
-        .where(eq(scanRuns.id, scanRunId));
+    if (run[0]?.funnelStats) {
+      console.log(
+        `[scan ${scanRunId}] ${funnelSummary(run[0].funnelStats as FunnelStats)}`,
+      );
     }
   }
 

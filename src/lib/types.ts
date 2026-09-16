@@ -1,7 +1,27 @@
+import type { ImmigrationPolicy } from "@/lib/visa/types";
+
+export interface CandidateProfile {
+  seniority: {
+    preferred: string[];
+    acceptable: string[];
+  };
+  coreRoles: string[];
+  cloud: string[];
+  platform: string[];
+  ai: string[];
+  observability: string[];
+  preferredLocations: string[];
+  preferredRemoteRegions: string[];
+  negativeSignals: string[];
+  searchTitles: string[];
+  immigration?: ImmigrationPolicy;
+}
+
 export interface SearchParams {
   query?: string;
   companySlug?: string;
   companyName?: string;
+  profile?: CandidateProfile;
 }
 
 export interface RawJob {
@@ -38,25 +58,6 @@ export interface JobSource {
   search(params: SearchParams): Promise<RawJob[]>;
   healthCheck(): Promise<SourceHealth>;
   rateLimit?: RateLimitConfig;
-}
-
-import type { ImmigrationPolicy } from "@/lib/visa/types";
-
-export interface CandidateProfile {
-  seniority: {
-    preferred: string[];
-    acceptable: string[];
-  };
-  coreRoles: string[];
-  cloud: string[];
-  platform: string[];
-  ai: string[];
-  observability: string[];
-  preferredLocations: string[];
-  preferredRemoteRegions: string[];
-  negativeSignals: string[];
-  searchTitles: string[];
-  immigration?: ImmigrationPolicy;
 }
 
 export interface JobAnalysis {

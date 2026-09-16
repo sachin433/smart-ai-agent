@@ -94,6 +94,30 @@ export function getMinIngestScore(
   }
 }
 
+export const REVIEW_MIN_SCORE = 0.5;
+
+export function shouldReviewIngestJob(params: {
+  rejected: boolean;
+  passesTitleFilter: boolean;
+  relevanceScore: number;
+  relevanceTier: RelevanceTier;
+  locationAcceptable: boolean;
+}): { review: boolean; reason?: string } {
+  if (params.rejected || !params.passesTitleFilter) {
+    return { review: false };
+  }
+  if (params.locationAcceptable) {
+    return { review: false };
+  }
+  if (params.relevanceTier === "low") {
+    return { review: false };
+  }
+  if (params.relevanceScore < REVIEW_MIN_SCORE) {
+    return { review: false };
+  }
+  return { review: true, reason: "Borderline location — manual review" };
+}
+
 export function shouldIngestJob(params: {
   rejected: boolean;
   passesTitleFilter: boolean;

@@ -1,6 +1,8 @@
 import { getDashboardStats, getRecentJobs, getLatestScan } from "@/lib/db/queries";
 import { JobCard } from "@/components/job-card";
 import { ScanButton } from "@/components/scan-button";
+import { ScanDiagnostics } from "@/components/scan-diagnostics";
+import type { FunnelStats } from "@/lib/pipeline/funnel";
 
 export const dynamic = "force-dynamic";
 
@@ -70,9 +72,11 @@ export default async function DashboardPage() {
       </div>
 
       {latestScan && (
-        <p className="text-sm text-zinc-500">
-          Last scan: {latestScan.status} at {latestScan.startedAt.toLocaleString()}
-        </p>
+        <ScanDiagnostics
+          funnel={latestScan.funnelStats as FunnelStats | null}
+          status={latestScan.status}
+          startedAt={latestScan.startedAt}
+        />
       )}
 
       <section>

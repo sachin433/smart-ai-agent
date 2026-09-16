@@ -152,7 +152,9 @@ describe("Security role exclusion", () => {
   it("rejects security-focused titles", () => {
     expect(isSecurityRole("Staff Cloud Security Architect")).toBe(true);
     expect(isSecurityRole("Security Software Engineer, Infrastructure Security")).toBe(true);
-    expect(getTitleRejectReason("Senior Security Engineer")).toContain("Security");
+    expect(
+      getTitleRejectReason("Senior Security Engineer", DEFAULT_PROFILE),
+    ).toContain("Security");
     expect(isSecurityRole("Staff Site Reliability Engineer")).toBe(false);
   });
 });

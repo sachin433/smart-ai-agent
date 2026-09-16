@@ -77,33 +77,4 @@ export function isInfraTargetRole(title: string): boolean {
   return INFRA_TITLE_PATTERNS.some((p) => p.test(t));
 }
 
-export function getTitleRejectReason(title: string): string | null {
-  const t = title.trim();
-
-  if (isSecurityRole(t)) {
-    return `Security-focused role excluded: ${title}`;
-  }
-
-  if (
-    /\b(amer|usa|us only|united states)\b/i.test(t) &&
-    !/\b(emea|europe|eu|uk|london|germany|ireland|sweden|spain|switzerland|japan)\b/i.test(t)
-  ) {
-    return "US/AMER-focused role title";
-  }
-
-  for (const pattern of HARD_REJECT_TITLE_PATTERNS) {
-    if (pattern.test(title)) {
-      return `Title not in target roles: ${title}`;
-    }
-  }
-
-  if (SOFTWARE_ENGINEER_PATTERN.test(title) && !isInfraTargetRole(title)) {
-    return "Generic software engineer role (not infrastructure/platform)";
-  }
-
-  if (!isInfraTargetRole(title)) {
-    return "Title does not match infrastructure/platform/SRE target roles";
-  }
-
-  return null;
-}
+export { getTitleRejectReason } from "./title-gate";

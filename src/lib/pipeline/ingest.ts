@@ -1,12 +1,18 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db";
 import { jobs, jobEvents, companies } from "@/lib/db/schema";
 import type { CandidateProfile } from "@/lib/types";
 import type { RawJob } from "@/lib/types";
 import { normalizeJob } from "./normalize";
 import { randomId } from "@/lib/utils/hash";
-import { shouldIngestJob } from "@/lib/visa/lanes";
+import { normalizeTitle } from "@/lib/utils/text";
+import { shouldIngestJob, shouldReviewIngestJob } from "@/lib/visa/lanes";
 import type { VisaImmigrationStatus } from "@/lib/visa/types";
+import {
+  createEmptyFunnel,
+  recordFunnelReject,
+  type FunnelStats,
+} from "./funnel";
 
 export interface IngestResult {
   discovered: number;
@@ -15,6 +21,11 @@ export interface IngestResult {
   duplicates: number;
   relevant: number;
   errors: string[];
+  funnel: FunnelStats;
+}
+
+function batchDedupKey(companyName: string, title: string): string {
+  return `${companyName.trim().toLowerCase()}|${normalizeTitle(title)}`;
 }
 
 export async function ingestRawJobs(
@@ -23,6 +34,9 @@ export async function ingestRawJobs(
   profile: CandidateProfile,
   companyId?: string,
 ): Promise<IngestResult> {
+  const funnel = createEmptyFunnel();
+  funnel.discovered = rawJobs.length;
+
   const result: IngestResult = {
     discovered: rawJobs.length,
     newJobs: 0,
@@ -30,11 +44,46 @@ export async function ingestRawJobs(
     duplicates: 0,
     relevant: 0,
     errors: [],
+    funnel,
   };
+
+  const seenInBatch = new Set<string>();
 
   for (const raw of rawJobs) {
     try {
+      const dedupKey = batchDedupKey(raw.companyName, raw.title);
+      if (seenInBatch.has(dedupKey)) {
+        funnel.duplicates++;
+        result.duplicates++;
+        continue;
+      }
+
       const normalized = await normalizeJob({ raw, companyId, profile });
+      const sample = `${normalized.title} @ ${normalized.companyName}`;
+
+      if (normalized.rejected) {
+        funnel.scoringRejected++;
+        recordFunnelReject(
+          funnel,
+          normalized.rejectReason ?? "Scoring rejected",
+          sample,
+        );
+        continue;
+      }
+
+      if (!normalized.passesTitleFilter) {
+        funnel.titleRejected++;
+        recordFunnelReject(funnel, "Title filter", sample);
+        continue;
+      }
+
+      const reviewDecision = shouldReviewIngestJob({
+        rejected: normalized.rejected,
+        passesTitleFilter: normalized.passesTitleFilter,
+        relevanceScore: normalized.relevanceScore,
+        relevanceTier: normalized.relevanceTier,
+        locationAcceptable: normalized.locationAcceptable,
+      });
 
       const ingestDecision = shouldIngestJob({
         rejected: normalized.rejected,
@@ -46,7 +95,19 @@ export async function ingestRawJobs(
         locationAcceptable: normalized.locationAcceptable,
       });
 
-      if (!ingestDecision.ingest) continue;
+      if (!reviewDecision.review && !ingestDecision.ingest) {
+        if (!normalized.locationAcceptable) {
+          funnel.locationRejected++;
+        } else {
+          funnel.ingestRejected++;
+        }
+        recordFunnelReject(
+          funnel,
+          ingestDecision.reason ?? "Ingest gate",
+          sample,
+        );
+        continue;
+      }
 
       const existingBySource = await db
         .select()
@@ -71,8 +132,22 @@ export async function ingestRawJobs(
         .where(eq(jobs.contentHash, normalized.contentHash))
         .limit(1);
 
+      const existingByTitle = await db
+        .select()
+        .from(jobs)
+        .where(
+          and(
+            sql`lower(${jobs.companyName}) = ${normalized.companyName.trim().toLowerCase()}`,
+            eq(jobs.normalizedTitle, normalized.normalizedTitle),
+          ),
+        )
+        .limit(1);
+
       const existing =
-        existingBySource[0] ?? existingByUrl[0] ?? existingByHash[0];
+        existingBySource[0] ??
+        existingByUrl[0] ??
+        existingByHash[0] ??
+        existingByTitle[0];
 
       const immigrationFields = {
         priorityLane: normalized.priorityLane,
@@ -85,6 +160,8 @@ export async function ingestRawJobs(
       };
 
       if (existing) {
+        seenInBatch.add(dedupKey);
+        funnel.duplicates++;
         result.duplicates++;
         const contentChanged = existing.contentHash !== normalized.contentHash;
 
@@ -107,13 +184,12 @@ export async function ingestRawJobs(
             visaSponsorship: normalized.visaSponsorship,
             ...immigrationFields,
             updatedAt: new Date(),
-            ...(contentChanged
-              ? { status: "discovered" as const }
-              : {}),
+            ...(contentChanged ? { status: "discovered" as const } : {}),
           })
           .where(eq(jobs.id, existing.id));
 
         if (contentChanged) {
+          funnel.updated++;
           result.updated++;
           await db.insert(jobEvents).values({
             id: randomId(),
@@ -126,13 +202,25 @@ export async function ingestRawJobs(
       }
 
       const isRelevant =
-        (normalized.relevanceTier === "exceptional" ||
-          normalized.relevanceTier === "strong" ||
-          normalized.relevanceTier === "potential");
+        normalized.relevanceTier === "exceptional" ||
+        normalized.relevanceTier === "strong" ||
+        normalized.relevanceTier === "potential";
 
-      if (!isRelevant) continue;
+      if (!isRelevant) {
+        funnel.ingestRejected++;
+        recordFunnelReject(funnel, "Low tier", sample);
+        continue;
+      }
 
+      seenInBatch.add(dedupKey);
       result.relevant++;
+
+      const jobStatus = reviewDecision.review ? "validated" : "matched";
+      if (reviewDecision.review) {
+        funnel.reviewIngested++;
+      } else {
+        funnel.ingested++;
+      }
 
       await db.insert(jobs).values({
         id: normalized.id,
@@ -157,23 +245,23 @@ export async function ingestRawJobs(
         relevanceTier: normalized.relevanceTier,
         analysis: normalized.analysis,
         matchReasons: normalized.matchReasons,
-        concerns: normalized.concerns,
+        concerns: reviewDecision.review
+          ? [...normalized.concerns, reviewDecision.reason ?? "Review location"]
+          : normalized.concerns,
         rawPayload: normalized.rawPayload,
-        status: "matched",
+        status: jobStatus,
         ...immigrationFields,
       });
 
       await db.insert(jobEvents).values({
         id: randomId(),
         jobId: normalized.id,
-        eventType: "discovered",
+        eventType: reviewDecision.review ? "validated" : "discovered",
       });
 
       result.newJobs++;
     } catch (err) {
-      result.errors.push(
-        err instanceof Error ? err.message : String(err),
-      );
+      result.errors.push(err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -206,7 +294,6 @@ export async function seedCompanies(db: Db): Promise<void> {
           name: seed.name,
           atsType: seed.atsType,
           atsSlug: seed.atsSlug,
-          enabled: true,
           updatedAt: new Date(),
         },
       });

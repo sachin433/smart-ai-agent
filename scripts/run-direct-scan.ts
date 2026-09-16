@@ -11,6 +11,9 @@ config({ path: resolve(__dirname, "../.env.local") });
 
 import { getDb } from "../src/lib/db";
 import { jobs } from "../src/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { scanRuns } from "../src/lib/db/schema";
+import { funnelSummary, type FunnelStats } from "../src/lib/pipeline/funnel";
 import { startScan } from "../src/lib/scan/orchestrator";
 import { processScanTasks } from "../src/lib/scan/worker";
 
@@ -33,6 +36,16 @@ async function main() {
       console.log(`  Error: ${result.errors[0]}`);
     }
     done = result.done;
+  }
+
+  const run = await db
+    .select()
+    .from(scanRuns)
+    .where(eq(scanRuns.id, scanId))
+    .limit(1);
+
+  if (run[0]?.funnelStats) {
+    console.log(`\nFunnel: ${funnelSummary(run[0].funnelStats as FunnelStats)}`);
   }
 
   const active = await db.select().from(jobs).where(ne(jobs.status, "rejected"));

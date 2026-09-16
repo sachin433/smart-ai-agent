@@ -111,8 +111,6 @@ export const DEFAULT_PROFILE: CandidateProfile = {
     "Release Engineer",
     "Build Engineer",
     "Data Platform Engineer",
-    "Infrastructure Security Engineer",
-    "Platform Security Engineer",
     "Network Platform Engineer",
     "Engineering Manager, SRE",
     "Engineering Manager, Platform",
